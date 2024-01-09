@@ -1,0 +1,5 @@
+{% for task in cron_tasks %}
+{% if task.zabbix_mon %}
+{{ task.name }}
+{% endif %}
+{% endfor %}

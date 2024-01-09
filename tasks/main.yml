@@ -1,0 +1,50 @@
+---
+- name: Ensure zabbix sender installed
+  apt:
+    update_cache: yes
+    name: zabbix-sender
+
+- name: ensure discover file exists
+  template:
+    src: "discover_file.j2"
+    dest: "{{ cron_discover_file }}"
+    mode: 0740
+
+- name: ensure log dir exists
+  file:
+    path: "{{ cron_log_path }}"
+    state: directory
+
+- name: Creates a cron file under /etc/cron.d without monitoring
+  cron:
+    name: "{{ item.name }}"
+    weekday: "{{ item.weekday | default ('*') }}"
+    minute: "{{ item.minute | default ('*') }}"
+    hour: "{{ item.hour | default ('*') }}"
+    day: "{{ item.day | default ('*') }}"
+    month: "{{ item.month | default ('*') }}"
+    user: "{{ item.user | default ('root') }}"
+    job: "{{ item.job }}"
+    cron_file: "ansible_{{ item.name }}"
+  with_items:
+    - "{{ cron_tasks }}"
+  when:
+    - cron_tasks is defined
+    - not item.zabbix_mon
+
+- name: Creates a cron file under /etc/cron.d with monitoring
+  cron:
+    name: "{{ item.name }}"
+    weekday: "{{ item.weekday | default ('*') }}"
+    minute: "{{ item.minute | default ('*') }}"
+    hour: "{{ item.hour | default ('*') }}"
+    day: "{{ item.day | default ('*') }}"
+    month: "{{ item.month | default ('*') }}"
+    user: "{{ item.user | default ('root') }}"
+    job: "{{ item.job }} ; zabbix_sender -z {{ cron_zabbix_server }} -s {{ cron_zabbix_client }} -k trap[{{ item.name }}] -o $? >> {{ cron_log_path }}/{{ item.name }}"
+    cron_file: "ansible_{{ item.name }}"
+  with_items:
+    - "{{ cron_tasks }}"
+  when:
+    - cron_tasks is defined
+    - item.zabbix_mon
